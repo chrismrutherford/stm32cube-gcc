@@ -23,22 +23,23 @@ TARGET     = demo
 
 # Take a look into $(CUBE_DIR)/Drivers/BSP for available BSPs
 # name needed in upper case and lower case
-BOARD      = STM32F446ZE-Nucleo
-BOARD_UC   = STM32F4xx_Nucleo_144
-BOARD_LC   = stm32f4xx_nucleo_144
+# cube/Projects/STM32F411RE-Nucleo/Examples/GPIO/GPIO_IOToggle/SW4STM32/STM32F4xx-Nucleo/STM32F411RETx_FLASH.ld
+BOARD      = STM32F411RE-Nucleo
+BOARD_UC   = STM32F4xx-Nucleo
+BOARD_LC   = stm32f4xx_nucleo
 BSP_BASE   = $(BOARD_LC)
 
 OCDFLAGS   = -f board/stm32f4discovery.cfg
 GDBFLAGS   =
 
-#EXAMPLE   = Templates
-EXAMPLE    = Examples/GPIO/GPIO_IOToggle
+EXAMPLE   = Templates
+#EXAMPLE    = Examples/GPIO/GPIO_IOToggle
 
 # MCU family and type in various capitalizations o_O
 MCU_FAMILY = stm32f4xx
-MCU_LC     = stm32f446xx
-MCU_MC     = STM32F446xx
-MCU_UC     = STM32F446ZE
+MCU_LC     = stm32f411xe
+MCU_MC     = STM32F411xE
+MCU_UC     = STM32F411RE
 
 # path of the ld-file inside the example directories
 LDFILE     = $(EXAMPLE)/SW4STM32/$(BOARD_UC)/$(MCU_UC)Tx_FLASH.ld
@@ -50,7 +51,7 @@ SRCS      += system_$(MCU_FAMILY).c
 SRCS      += stm32f4xx_it.c
 
 # Basic HAL libraries
-SRCS      += stm32f4xx_hal_rcc.c stm32f4xx_hal_rcc_ex.c stm32f4xx_hal.c stm32f4xx_hal_cortex.c stm32f4xx_hal_gpio.c stm32f4xx_hal_pwr_ex.c $(BSP_BASE).c
+SRCS      += stm32f4xx_hal_rcc.c stm32f4xx_hal_rcc_ex.c stm32f4xx_hal.c stm32f4xx_hal_cortex.c stm32f4xx_hal_gpio.c stm32f4xx_hal_pwr_ex.c stm32f4xx_hal_uart.c $(BSP_BASE).c
 
 # Directories
 OCD_DIR    = /usr/share/openocd/scripts
@@ -62,6 +63,9 @@ HAL_DIR    = $(CUBE_DIR)/Drivers/STM32F4xx_HAL_Driver
 CMSIS_DIR  = $(CUBE_DIR)/Drivers/CMSIS
 
 DEV_DIR    = $(CMSIS_DIR)/Device/ST/STM32F4xx
+
+
+
 
 CUBE_URL   = http://www.st.com/st-web-ui/static/active/en/st_prod_software_internet/resource/technical/software/firmware/stm32cubef4.zip
 
@@ -96,6 +100,18 @@ INCS      += -I$(CMSIS_DIR)/Include
 INCS      += -I$(DEV_DIR)/Include
 INCS      += -I$(HAL_DIR)/Inc
 
+ifeq (${freertos}, y)
+CU_RTOS_DIR   = $(CUBE_DIR)/Middlewares/Third_Party/FreeRTOS/Source
+INCS      += -I$(CU_RTOS_DIR)/include
+INCS      += -I$(CU_RTOS_DIR)/CMSIS_RTOS/
+INCS      += -I$(CU_RTOS_DIR)/portable/GCC/ARM_CM4F
+SRCS     += $(CU_RTOS_DIR)/portable/GCC/ARM_CM4F/port.c
+SRCS     += $(CU_RTOS_DIR)/CMSIS_RTOS/cmsis_os.c
+SRCS     += $(CU_RTOS_DIR)/portable/MemMang/heap_2.c
+SRCS     += $(CU_RTOS_DIR)/croutine.c $(CU_RTOS_DIR)/event_groups.c $(CU_RTOS_DIR)/list.c $(CU_RTOS_DIR)/queue.c $(CU_RTOS_DIR)/tasks.c $(CU_RTOS_DIR)/timers.c
+else
+endif
+
 # Library search paths
 LIBS       = -L$(CMSIS_DIR)/Lib
 
@@ -121,6 +137,7 @@ VPATH     += $(DEV_DIR)/Source/
 OBJS       = $(addprefix obj/,$(SRCS:.c=.o))
 DEPS       = $(addprefix dep/,$(SRCS:.c=.d))
 
+
 # Prettify output
 V = 0
 ifeq ($V, 0)
@@ -136,6 +153,8 @@ all: $(TARGET).bin
 
 -include $(DEPS)
 
+dir_guard=@mkdir -p $(@D)
+
 dirs: dep obj cube
 dep obj src:
 	@echo "[MKDIR]   $@"
@@ -143,6 +162,7 @@ dep obj src:
 
 obj/%.o : %.c | dirs
 	@echo "[CC]      $(notdir $<)"
+	$(dir_guard)
 	$Q$(CC) $(CFLAGS) -c -o $@ $< -MMD -MF dep/$(*F).d
 
 $(TARGET).elf: $(OBJS)
@@ -182,6 +202,11 @@ cube:
 	mv STM32Cube* $(CUBE_DIR)
 	chmod -R u+w $(CUBE_DIR)
 	rm -f /tmp/cube.zip
+
+freertos: cube template src
+	cp rtosexample/stm32f4xx_it.c src
+	cp rtosexample/main.c src
+	cp rtosexample/FreeRTOSConfig.h src
 
 template: cube src
 	cp -ri $(CUBE_DIR)/Projects/$(BOARD)/$(EXAMPLE)/Src/* src
